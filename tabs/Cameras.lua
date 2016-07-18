@@ -9,6 +9,7 @@ function Camera:init(x, y)
     self.pivotX = .5
     self.pivotY = .5
     self.parallax = false
+    self.sorting = false
     self.parallaxSpeed = 1.0
 end
 
@@ -167,14 +168,16 @@ function Camera:draw()
         translate(self.pivotX * WIDTH, self.pivotY * HEIGHT)
         rotate(self.angle)
         
-        table.sort(self.scene, function(obj, list)
-            if list.sorted then
-                if self.parallax and obj.parallaxed and list.parallaxed then
-                    return obj.y + self.y * list.parallaxSpeed > list.y + self.y * obj.parallaxSpeed
+        if self.sorting then
+            table.sort(self.scene, function(obj, list)
+                if list.sorted then
+                    if self.parallax and obj.parallaxed and list.parallaxed then
+                        return obj.y + self.y * list.parallaxSpeed > list.y + self.y * obj.parallaxSpeed
+                    end
+                    return obj.y > list.y
                 end
-                return obj.y > list.y
-            end
-        end)
+            end)
+        end
         
         for id, child in ipairs(self.scene) do
             if child.draw then

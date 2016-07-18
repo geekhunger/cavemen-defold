@@ -18,7 +18,7 @@ function Sprite:init(img, x, y, w, h, width, height)
     self.mesh.textureRegion = 1
     self.mesh:addRect(0, 0, 0, 0)
     
-    self.animations = {}
+    self.animation = {}
     self.numAnimations = 0
     --self.animating (boolean)
     --self.name (string)
@@ -26,7 +26,7 @@ function Sprite:init(img, x, y, w, h, width, height)
     --self.fps (number)
     --self.looping (boolean or number)
     --self.numLoopings (number)
-    --self.callback (function)
+    --self.callback (function)s
     
     self:addAnimation("_default", {1})
     self:setAnimation("_default", 1, false)
@@ -40,7 +40,7 @@ end
 -- [callback] is called after every complete loop over the animation sequence
 -- and gets passed [currentLoopNumber, animationName] parameters which are optional to use
 function Sprite:setAnimation(name, fps, looping, callback)
-    assert(self.animations[name], "could not find animation '"..name.."'")
+    assert(self.animation[name], "could not find animation '"..name.."'")
     
     if name ~= self.name then
         -- Reset only when animation really changes!
@@ -58,18 +58,18 @@ end
 
 -- Create a named animation on sprite from sequence of frames
 function Sprite:addAnimation(name, frames)
-    if not self.animations[name] then
+    if not self.animation[name] then
         self.numAnimations = self.numAnimations + 1
     end
-    self.animations[name] = frames
+    self.animation[name] = frames
 end
 
 -- Remove animation from sprite by name
 function Sprite:removeAnimation(name)
-    if self.animations[name] then
+    if self.animation[name] then
         self.numAnimations = self.numAnimations - 1
     end
-    self.animations[name] = nil
+    self.animation[name] = nil
 end
 
 -- Gather information about any rectangular region on texture
@@ -130,7 +130,7 @@ function Sprite:draw()
     if not self.hidden then
         if booleanOrDefaultBoolean(self.animating, true) then
             if not self._animationTimer or ElapsedTime > self._animationTimer + 1/self.fps then
-                local ani = self.animations[self.name]
+                local ani = self.animation[self.name]
                 local frm = self.frame
                 
                 -- Update texture uv

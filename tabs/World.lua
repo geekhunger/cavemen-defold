@@ -200,38 +200,59 @@ function World:load()
     --]]
 end
 
+-- This method is a coroutine and runs on a separate thread
 function World:save()
-    local maxTasks = 10 -- number of tasks to solve per single draw() call
-    local maxTiles = 10 -- number of tiles to save per single draw() call
-    local undoTimer = 3 -- time duration (in sec) after which tasks can not be un-done anymore
+    local maxTasks = 15 -- number of tasks to solve per single draw() call
+    local maxTiles = 30 -- number of tiles to save per single draw() call
+    local undoTimer = 0 -- time duration (in sec) after which tasks can not be un-done anymore
+    local tiles = {} -- list of processed tiles
     
+    -- Loop over save buffer until everything saved
     while #self.map.saveBuffer > 0 do
         for i, task in ipairs(self.map.saveBuffer) do
             if task.time + undoTimer < ElapsedTime then
                 for j, tile in ipairs(task.tiles) do
+                    -- Save tiles that can not be undone anymore
                     saveProjectData(tile.x.." "..tile.y.." "..task.layer, tile.id)
+                    
+                    -- Track tiles that were saved to pass onto setup()
+                    if tile.id and tile.id > 1 then
+                        tile.layer = task.layer
+                        table.insert(tiles, tile)
+                    end
+                    
                     if j % maxTiles == 0 then coroutine.yield() end
                 end
                 table.remove(self.map.saveBuffer, i)
-                print("-", task.time)
             end
             if i % maxTasks == 0 then coroutine.yield() end
         end
+        print("remaining tasks #"..#self.map.saveBuffer)
         coroutine.yield()
     end
+    
+    -- Remove tiles from camera that were updated
+    -- TODO
+    
+    -- Add updated tiles to the camera
+    print("projectData #"..#listProjectData())
+    print("tiles to setup #"..#tiles)
+    self:setup(tiles)
 end
 
 -- Override this method to perform custom world setup
 -- This funtion gets called automatically each time when a new piece of the map was dynamically loaded
-function World:setup(chunks)
-    for i, chunk in ipairs(chunks) do
-        for j, tile in ipairs(chunk.tiles) do
-            local x = chunk.x * self.map.chunkWidth * self.picker.minWidth + tile.x * self.picker.minWidth
-            local y = chunk.y * self.map.chunkHeight * self.picker.minHeight + tile.x * self.picker.minHeight
-            local obj = Sprite(self.texture, x, y, self.picker.minWidth, self.picker.minHeight)
-            obj.animations._default[1] = tile.spriteIndex
-            self.map:addChild(obj)
-        end
+function World:setup(data)
+    for i, tile in ipairs(data) do
+        local obj = Sprite(
+            self.texture,
+            tile.x * self.picker.minWidth,
+            tile.y * self.picker.minHeight,
+            self.picker.minWidth,
+            self.picker.minHeight
+        )
+        obj.animation._default[1] = tile.id
+        self.map:addChild(obj)
     end
 end
 
@@ -368,6 +389,17 @@ function World:draw()
     if not self.hidden then
         self.map:draw()
         self:debugDraw()
+        
+        for id, bufferTile in ipairs(self.map.drawBuffer) do
+            if self.map.saveBuffer[bufferTile.taskId] then
+                bufferTile:draw()
+            else
+                --table.remove(self.map.drawBuffer, id)
+                print("buffered drawings #"..#self.map.drawBuffer)
+            end
+        end
+        
+        
         
         if self.map.saveRoutine then
             coroutine.resume(self.map.saveRoutine)
@@ -510,7 +542,7 @@ function World:touched(touch)
                         -- Calculate tile that we are currently touching
                         local pos = vec2(self.map:getWorldPosition(touch.x, touch.y))
                         local tile = vec2(math.floor(pos.x / self.picker.minWidth), math.floor(pos.y / self.picker.minHeight))
-                        local i = 1
+                        local i = 0
                         
                         -- Chache the touched tile and respond to drawing only when this tile changes
                         if self._activeTile ~= tile then
@@ -519,24 +551,31 @@ function World:touched(touch)
                             -- Unpack picker indeces into tile positions
                             for y = self.picker.height / self.picker.minHeight, 1, -1 do
                                 for x = 1, self.picker.width / self.picker.minWidth do
-                                    -- We do not override existing positions because we want preserve undo's
-                                    table.insert(self._saveBuffer.tiles, {
-                                        x = tile.x + x - 1,
-                                        y = tile.y + y - 1,
-                                        id = self.picker.preview.textureRegion[i] ~= 1 and self.picker.preview.textureRegion[i] or nil
-                                    })
                                     i = i + 1
+                                    local x = tile.x + x - 1
+                                    local y = tile.y + y - 1
+                                    local id = self.picker.preview.textureRegion[i] ~= 1 and self.picker.preview.textureRegion[i] or nil
+                                    local skip = false
+                                    
+                                    for _, existingTile in ipairs(self._saveBuffer.tiles) do
+                                        if existingTile.x == x and existingTile.y == y then
+                                            existingTile.id = id
+                                            skip = true
+                                            break
+                                        end
+                                    end
+                                    
+                                    if not skip then table.insert(self._saveBuffer.tiles, {x = x, y = y, id = id}) end
                                 end
                             end
-                            
-                            -- Update drawing buffer
-                            
                         end
                     end
                 else
                 -- Scroll world map camera
                     self.map.x = self.map.x - touch.deltaX
                     self.map.y = self.map.y - touch.deltaY
+                    self.map.drawBuffer.x = self.map.x
+                    self.map.drawBuffer.y = self.map.y
                 end
             end
         end

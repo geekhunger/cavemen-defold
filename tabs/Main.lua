@@ -21,6 +21,11 @@ function draw()
     background(20)
     
     world:draw()
+    
+    --[[
+    fill(0, 255, 0, 127)
+    ellipse(CurrentTouch.x, CurrentTouch.y, 25)
+    --]]
 end
 
 function touched(touch)
