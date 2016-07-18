@@ -21,12 +21,6 @@ function draw()
     background(20)
     
     world:draw()
-    
-    --[[
-    local x, y = world.map:getWorldPosition(CurrentTouch.x, CurrentTouch.y)
-    fill(0, 255, 0, 127)
-    ellipse(x, y, 50)
-    --]]
 end
 
 function touched(touch)
