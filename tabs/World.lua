@@ -44,13 +44,15 @@ function World:init()
     
     local numTiles = self.texture.width/8 * self.texture.height/8
     self.flag = Checkbox(math.ceil(nearestPower2(numTiles) + 1))
+    self.flag:setValue(tonumber(readProjectData("flag", "0")))
     self.flag.pivotX = 1
     self.flag.pivotY = 1
     
-    self.layer = {0,3}
+    self.layer = {}
+    for layer in string.gmatch(readProjectData("layer", ""), "%S+") do table.insert(self.layer, tonumber(layer)) end
     
     self.visible = Checkbox(#self.layer)
-    self.visible:setValue(1)--(self.visible:getMaxValue())
+    self.visible:setValue(tonumber(readProjectData("visible", "0")))
     self.visible.color = color(255)
     self.visible.windowWidth = self.visible.height + textSize(self.flag.value[#self.flag.value]*2)
     self.visible.x = WIDTH - self.visible.windowWidth
@@ -60,10 +62,9 @@ function World:init()
     self.map = Camera()
     self.map.scaleX = 8 -- map scale value (important for in-game view)
     self.map.scaleY = 8
-    self.map.chunkWidth = 4 -- NOTE: Right now chunks only used as visual guides when scrolling tiles (no technical use)
+    self.map.chunkWidth = 4 -- NOTE: Right now chunks only used as visual guides when scrolling tiles (no technical use yet)
     self.map.chunkHeight = 4 -- number of sprites (not pixels)
     self.map.saveBuffer = {} -- used to cache drawings and allow to undo them within timer range
-    self.map.drawBuffer = {} -- used to display cached drawings until they are saved and copied to self.map.scene
     self.map.adjustPivot = function()
         if self.debug then
             self.map.pivotX = (WIDTH - self.visible.windowWidth) / WIDTH / 2
@@ -204,40 +205,55 @@ end
 function World:save()
     local maxTasks = 15 -- number of tasks to solve per single draw() call
     local maxTiles = 30 -- number of tiles to save per single draw() call
-    local undoTimer = 0 -- time duration (in sec) after which tasks can not be un-done anymore
-    local tiles = {} -- list of processed tiles
+    local undoTimer = 3 -- time duration (in sec) after which tasks can not be un-done anymore
     
     -- Loop over save buffer until everything saved
     while #self.map.saveBuffer > 0 do
         for i, task in ipairs(self.map.saveBuffer) do
             if task.time + undoTimer < ElapsedTime then
+                -- Save tiles that can not be undone anymore (deletes tiles whose texture region index is 1)
                 for j, tile in ipairs(task.tiles) do
-                    -- Save tiles that can not be undone anymore
                     saveProjectData(tile.x.." "..tile.y.." "..task.layer, tile.id)
-                    
-                    -- Track tiles that were saved to pass onto setup()
-                    if tile.id and tile.id > 1 then
-                        tile.layer = task.layer
-                        table.insert(tiles, tile)
-                    end
-                    
                     if j % maxTiles == 0 then coroutine.yield() end
                 end
+                
+                -- Create layer at correct sorting position when its still missing
+                do local pos = 1
+                    for id, val in ipairs(self.layer) do
+                        if val <  task.layer then pos = id + 1 end
+                        if val == task.layer then pos = nil end
+                        if val >= task.layer then break end
+                    end
+                    if pos then
+                        table.insert(self.layer, pos, task.layer)
+                        self.visible:addByte(pos)
+                        self.visible:toggleByte(pos)
+                    end
+                end
+                
                 table.remove(self.map.saveBuffer, i)
+                if i % maxTasks == 0 then coroutine.yield() end
             end
-            if i % maxTasks == 0 then coroutine.yield() end
         end
-        print("remaining tasks #"..#self.map.saveBuffer)
         coroutine.yield()
     end
     
-    -- Remove tiles from camera that were updated
-    -- TODO
+    -- Delete layers that have no content anymore
+    local content = table.concat(listProjectData(), " ")
+    for id, layer in ipairs(self.layer) do
+        if not content:find("%S+%s%S+%s"..layer) then
+            table.remove(self.layer, id)
+            self.visible:removeByte(id)
+        end
+    end
+    
+    saveProjectData("layer", table.concat(self.layer, " "))
+    saveProjectData("visible", self.visible:getValue())
+    saveProjectData("flag", self.flag:getValue())
     
     -- Add updated tiles to the camera
-    print("projectData #"..#listProjectData())
-    print("tiles to setup #"..#tiles)
-    self:setup(tiles)
+    --print("projectData #"..#listProjectData())
+    --self:setup(tiles)
 end
 
 -- Override this method to perform custom world setup
@@ -389,17 +405,6 @@ function World:draw()
     if not self.hidden then
         self.map:draw()
         self:debugDraw()
-        
-        for id, bufferTile in ipairs(self.map.drawBuffer) do
-            if self.map.saveBuffer[bufferTile.taskId] then
-                bufferTile:draw()
-            else
-                --table.remove(self.map.drawBuffer, id)
-                print("buffered drawings #"..#self.map.drawBuffer)
-            end
-        end
-        
-        
         
         if self.map.saveRoutine then
             coroutine.resume(self.map.saveRoutine)
@@ -574,8 +579,6 @@ function World:touched(touch)
                 -- Scroll world map camera
                     self.map.x = self.map.x - touch.deltaX
                     self.map.y = self.map.y - touch.deltaY
-                    self.map.drawBuffer.x = self.map.x
-                    self.map.drawBuffer.y = self.map.y
                 end
             end
         end
@@ -685,24 +688,6 @@ function World:touched(touch)
                     
                     if not self.map.saveRoutine or coroutine.status(self.map.saveRoutine) == "dead" then
                         self.map.saveRoutine = coroutine.create(function() self:save() end)
-                    end
-                    
-                    -- Create layer at correct sorting position when its still missing
-                    local layer = math.tointeger(self.flag:getValue())
-                    
-                    if not string.match(table.concat(self.layer, " "), "%s?"..layer.."%s?") then
-                        local pos = #self.layer + 1
-                        
-                        for id, val in ipairs(self.layer) do
-                            if val > layer then
-                                pos = id
-                                break
-                            end
-                        end
-                        
-                        table.insert(self.layer, pos, layer)
-                        self.visible:addByte(pos)
-                        self.visible:toggleByte(pos)
                     end
                     
                     sound(unpack(self.sfx.action))
