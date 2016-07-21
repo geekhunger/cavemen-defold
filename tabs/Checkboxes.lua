@@ -188,7 +188,7 @@ function Checkbox:draw()
                 ellipseMode(CORNER)
                 ellipse(x, 0, width,self. height)
                 strokeWidth(border/2)
-                stroke(255, 255, 255, 255)
+                stroke(255)
                 ellipse(x + border, border, width - 2*border, self.height - 2*border)
             end
         end

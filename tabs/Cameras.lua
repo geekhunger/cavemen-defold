@@ -32,7 +32,9 @@ function Camera:removeChild(object)
 end
 
 function Camera:clearChildren()
-    self.scene = {}
+    for id, obj in ipairs(self.scene) do
+        self:removeChild(id)
+    end
 end
 
 function Camera:setParallaxProperties()

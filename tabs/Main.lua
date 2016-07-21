@@ -18,6 +18,7 @@ function orientationChanged()
 end
 
 function draw()
+    noSmooth()
     background(20)
     
     world:draw()

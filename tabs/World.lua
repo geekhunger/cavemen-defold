@@ -1,12 +1,8 @@
 World = class()
 
 function World:init()
-    parameter.action("Delete Current Layer", function()
-        print("what should I do?")
-    end)
-    
     parameter.action("Delete All", function()
-        print("removed project data but not more")
+        print("removed project data but nothing more")
         clearProjectData()
     end)
     
@@ -15,6 +11,7 @@ function World:init()
     self.sfx.action = {SOUND_RANDOM, 6653}
     
     self.gestureTimer = .33 -- time duration (in sec) after which to lock into a certain touch mode
+    self.undoTimer = 3 -- time duration (in sec) after which drawings can not be un-done anymore
     
     -- NOTE:
     -- Each tile on spritesheet should be at size of power of 2 (8x8, 16x24, 32x32, ... px)
@@ -76,6 +73,7 @@ function World:init()
     end
     
     self:orientationChanged()
+    self:load()
 end
 
 function World:orientationChanged()
@@ -98,119 +96,15 @@ function World:orientationChanged()
     --end
 end
 
--- Call this method for dynamic loading (e.g. when camera position changes)
-function World:load()
-    -- Calculate which new chunks are now inside cameras sight
-    local chunkWidth = self.picker.minWidth * self.map.chunkWidth
-    local chunkHeight = self.picker.minHeight * self.map.chunkHeight
-    local bottomLeftPos = vec2(self.map:getWorldPosition(0, 0)) -- sight borders!
-    local topRightPos = vec2(self.map:getWorldPosition(WIDTH, HEIGHT))
-    local bottomLeftChunk = vec2(math.floor(bottomLeftPos.x / chunkWidth), math.floor(bottomLeftPos.y / chunkHeight))
-    local topRightChunk = vec2(math.floor(topRightPos.x / chunkWidth), math.floor(topRightPos.y / chunkHeight))
-    
-    if self.map.activeChunk ~= bottomLeftChunk then
-        if not self.map.activeChunk then
-            -- load all visible tiles
-        else
-            --load only new visible row or column of tiles (e.g. vec2(-1,0)) == left column full row
-        end
-        
-        self.map.activeChunk = bottomLeftChunk
-    end
-    
-    for x = bottomLeftChunk.x, topRightChunk.x do
-        for y = bottomLeftChunk.y, topRightChunk.y do
-            local missingChunk = vec2(x, y)
-            local loadMissingChunk = true
-            
-            for l, loadedChunk in ipairs(self.map.scene) do
-                if loadedChunk == missingChunk then
-                    loadMissingChunk = false
-                    break
-                end
-            end
-            
-            if loadMissingChunk then
-                --table.insert(visibleChunks, missingChunk)
-            end
-        end
-    end
-    
-    --[[
-    -- Unload everything that is not visible anymore
-    --loop over chunks to load in reverse and delete by id's from self.map.scene
-    for i, visibleChunk in ipairs(visibleChunks) do
-    end
-    
-    
-    
-    
-    
-    
-    -- Compare which chunks are already loaded and which have yet to be loaded
-    for i, missingChunk in ipairs(visibleChunks) do
-        local mark = true
-        for j, existingChunk in ipairs(self.map.visibleChunks) do
-            -- Skip chunks that are visible but already loaded
-            if missingChunk == existingChunk then
-                mark = false
-                break
-            end
-        end
-        if mark then
-            table.insert(chunksToLoad, missingChunk) -- mark to be loaded
-            table.insert(self.map.visibleChunks, missingChunk) -- mark as loaded
-        end
-    end
-    
-    -- Remove everything that was loaded but is now not visible anymore
-    for id, unwantedChunk in ipairs(self.map.visibleChunks) do
-        local mark = true
-        for _, visibleChunk in ipairs(visibleChunks) do
-            if unwantedChunk == visibleChunks then
-                mark = false
-                break
-            end
-        end
-        if mark then table.remove(self.map.visibleChunks, id) end
-    end
-    
-    -- Load missing chunks and pass onto setup() for initialisation
-    for i, missingChunk in ipairs(chunksToLoad) do
-        for listedChunk, listedTiles in pairs(self.map.chunkList) do
-            -- Find missing chunk in the list (on any layer)
-            local chunkX, chunkY, layerValue = listedChunk:match("(%S+) (%S+) (%S+)")
-            if tonumber(chunkX) == missingChunk.x and tonumber(chunkY) == missingChunk.y then
-                for x, y, spr in listedTiles:gmatch("(%S+) (%S+) (%S+)") do
-                    table.insert(loadedTiles, {
-                        x = tonumber(x),
-                        y = tonumber(y),
-                        spriteIndex = tonumber(spr),
-                        layerValue = tonumber(layerValue)
-                    })
-                end
-            end
-        end
-    end
-    
-    -- Sort by layerValue and then by tile x,y
-    --table.sort(loadedTiles, function(obj, list) return obj.layerValue < list.layerValue end)
-    
-    -- Pass onto setup
-    --self:setup(loadedTiles)
-    --]]
-end
-
 -- This method is a coroutine and runs on a separate thread
 function World:save()
     local maxTasks = 15 -- number of tasks to solve per single draw() call
     local maxTiles = 30 -- number of tiles to save per single draw() call
-    local undoTimer = 3 -- time duration (in sec) after which tasks can not be un-done anymore
     
     -- Loop over save buffer until everything saved
     while #self.map.saveBuffer > 0 do
         for i, task in ipairs(self.map.saveBuffer) do
-            if task.time + undoTimer < ElapsedTime then
+            if task.time + self.undoTimer < ElapsedTime then
                 -- Save tiles that can not be undone anymore (deletes tiles whose texture region index is 1)
                 for j, tile in ipairs(task.tiles) do
                     saveProjectData(tile.x.." "..tile.y.." "..task.layer, tile.id)
@@ -218,17 +112,16 @@ function World:save()
                 end
                 
                 -- Create layer at correct sorting position when its still missing
-                do local pos = 1
-                    for id, val in ipairs(self.layer) do
-                        if val <  task.layer then pos = id + 1 end
-                        if val == task.layer then pos = nil end
-                        if val >= task.layer then break end
-                    end
-                    if pos then
-                        table.insert(self.layer, pos, task.layer)
-                        self.visible:addByte(pos)
-                        self.visible:toggleByte(pos)
-                    end
+                local pos = 1
+                for id, val in ipairs(self.layer) do
+                    if val <  task.layer then pos = id + 1 end
+                    if val == task.layer then pos = nil end
+                    if val >= task.layer then break end
+                end
+                if pos then
+                    table.insert(self.layer, pos, task.layer)
+                    self.visible:addByte(pos)
+                    self.visible:toggleByte(pos)
                 end
                 
                 table.remove(self.map.saveBuffer, i)
@@ -250,10 +143,50 @@ function World:save()
     saveProjectData("layer", table.concat(self.layer, " "))
     saveProjectData("visible", self.visible:getValue())
     saveProjectData("flag", self.flag:getValue())
+end
+
+-- Call this method for dynamic loading (e.g. when camera position changes)
+function World:load()
+    -- Calculate which tiles are inside cameras sight
+    local bottomLeftPos = vec2(self.map:getWorldPosition(0, 0)) -- sight borders!
+    local topRightPos = vec2(self.map:getWorldPosition(WIDTH, HEIGHT))
+    --local chunkWidth = self.picker.minWidth * self.map.chunkWidth
+    --local chunkHeight = self.picker.minHeight * self.map.chunkHeight
+    --local bottomLeftChunk = vec2(math.floor(bottomLeftPos.x / chunkWidth), math.floor(bottomLeftPos.y / chunkHeight))
+    --local topRightChunk = vec2(math.floor(topRightPos.x / chunkWidth), math.floor(topRightPos.y / chunkHeight))
+    local bottomLeftTile = vec2(math.floor(bottomLeftPos.x / self.picker.minWidth), math.floor(bottomLeftPos.y / self.picker.minHeight))
+    local topRightTile = vec2(math.floor(topRightPos.x / self.picker.minWidth), math.floor(topRightPos.y / self.picker.minHeight))
     
-    -- Add updated tiles to the camera
-    --print("projectData #"..#listProjectData())
-    --self:setup(tiles)
+    -- Load appropriate tiles and pass them to setup()
+    if self.map.activeTile ~= bottomLeftTile then
+        -- Load all visible tiles
+        if not self.map.activeTile then
+            local tiles = {}
+            
+            for layerId, layerValue in ipairs(self.layer) do
+                for x = bottomLeftTile.x, topRightTile.x do
+                    for y = bottomLeftTile.y, topRightTile.y do
+                        local tileId = readProjectData(x.." "..y.." "..layerValue)
+                        if tileId then
+                            table.insert(tiles, {
+                                x = x,
+                                y = y,
+                                id = tileId,
+                                layer = layerValue
+                            })
+                        end
+                    end
+                end
+            end
+            
+            self:setup(tiles)
+        else
+        -- Load only new visible tiles when map changed position
+            print("load row/column of tiles")
+        end
+        
+        self.map.activeTile = bottomLeftTile
+    end
 end
 
 -- Override this method to perform custom world setup
@@ -268,6 +201,7 @@ function World:setup(data)
             self.picker.minHeight
         )
         obj.animation._default[1] = tile.id
+        obj.layer = tile.layer
         self.map:addChild(obj)
     end
 end
@@ -288,10 +222,6 @@ function World:debugDraw()
             -- Scrolling world map camera
             -- Display grid
             -- TODO: fade out grid when ended scrolling
-            noFill()
-            stroke(96, 88, 79, 255)
-            strokeWidth(1)
-            
             local centerX = WIDTH * self.map.pivotX
             local centerY = HEIGHT * self.map.pivotY
             local tileWidth = self.map.scaleX * self.picker.minWidth
@@ -309,19 +239,38 @@ function World:debugDraw()
             local chunkScrollX = self.map.x % chunkWidth
             local chunkScrollY = self.map.y % chunkHeight
             
-            for x = centerX - gridScreenX2, centerX + gridScreenX2, tileWidth do line(x - gridScrollX, 0, x - gridScrollX, HEIGHT) end
-            for y = centerY - gridScreenY2, centerY + gridScreenY2, tileHeight do line(0, y - gridScrollY, WIDTH, y - gridScrollY) end
+            pushStyle()
+            for x = centerX - gridScreenX2, centerX + gridScreenX2, tileWidth do
+                noFill()
+                strokeWidth(2)
+                stroke(33)
+                line(x - gridScrollX + 1, 0, x - gridScrollX + 1, HEIGHT)
+                strokeWidth(1)
+                stroke(96, 88, 79, 255)
+                line(x - gridScrollX, 0, x - gridScrollX, HEIGHT)
+            end
+            for y = centerY - gridScreenY2, centerY + gridScreenY2, tileHeight do
+                strokeWidth(2)
+                stroke(33)
+                line(0, y - gridScrollY - 1, WIDTH, y - gridScrollY - 1)
+                strokeWidth(1)
+                stroke(96, 88, 79, 255)
+                line(0, y - gridScrollY, WIDTH, y - gridScrollY)
+            end
             
             -- Display grid chunks
             for x = centerX - chunkScreenX2, centerX + chunkScreenX2, chunkWidth do
                 for y = centerY - chunkScreenY2, centerY + chunkScreenY2, chunkHeight do
-                    pushStyle()
                     noStroke()
-                    fill(96, 88, 79, 255)
+                    fill(33)
+                    ellipse(x - chunkScrollX, y - chunkScrollY, 20)
+                    noFill()
+                    strokeWidth(2)
+                    stroke(250, 162, 27, 255)
                     ellipse(x - chunkScrollX, y - chunkScrollY, 15)
-                    popStyle()
                 end
             end
+            popStyle()
             
             -- Set title bar color to indicate touch mode
             self._moveMapCamera = true
@@ -334,18 +283,21 @@ function World:debugDraw()
         
         -- Display additional info on title bar
         if self._moveMapCamera then
+        -- Scrolling mode
             fill(20)
             text(string.format("x: %.0f  y: %.0f", self.map.x / self.map.scaleX, self.map.y / self.map.scaleY), WIDTH/2, HEIGHT - self.titleBarHeight/2)
         else
+        -- Drawing mode
             if #self.map.saveBuffer > 0 then
+                local time = self.map.saveBuffer[#self.map.saveBuffer].time + self.undoTimer - ElapsedTime
                 fill(255)
-                text("Undo", 32, HEIGHT - self.titleBarHeight/2)
+                text(string.format("Undo %.0f", time), WIDTH/2, HEIGHT - self.titleBarHeight/2)
             end
         end
         
         -- Layers
         zLevel(-1)
-        fill(33, 33, 36, 255)
+        fill(33)
         rect(WIDTH - self.visible.windowWidth, 0, self.visible.windowWidth, HEIGHT)
         self.visible:draw()
         
@@ -403,16 +355,44 @@ end
 -- Override this method to perform custom world drawing
 function World:draw()
     if not self.hidden then
-        self.map:draw()
+        -- Custom world camera
+        -- NOTE: rotation, sorting and parallax completely deactivated for this game!
+        pushMatrix()
+        
+        if self._shakingOffset then translate(self.map._shakingOffset.x, self.map._shakingOffset.y) end
+        translate(self.map.pivotX * WIDTH, self.map.pivotY * HEIGHT)
+        
+        for id, child in ipairs(self.map.scene) do
+            local layer
+            for layerId, layerValue in ipairs(self.layer) do
+                if child.layer == layerValue then
+                    layer = layerId
+                    break
+                end
+            end
+            
+            if child.draw
+            and self.visible.byte[layer] then
+                pushMatrix()
+                translate(-self.map.x, -self.map.y)
+                scale(self.map.scaleX, self.map.scaleY)
+                child:draw()
+                popMatrix()
+            end
+        end
+        
+        -- Editor
+        popMatrix()
         self:debugDraw()
         
+        -- Coroutine threads
         if self.map.saveRoutine then
             coroutine.resume(self.map.saveRoutine)
         end
     end
 end
 
-function World:touched(touch)
+function World:debugTouched(touch)
     -- Actions on editor (debug mode only)
     if self.debug then
         -- Register where touches begin and save identifier flags
@@ -579,6 +559,7 @@ function World:touched(touch)
                 -- Scroll world map camera
                     self.map.x = self.map.x - touch.deltaX
                     self.map.y = self.map.y - touch.deltaY
+                    self:load()
                 end
             end
         end
@@ -710,19 +691,18 @@ function World:touched(touch)
         -- Redirect touches to also to objects
         self.flag:touched(touch, function(id)
             self.flag:toggleByte(id)
+            saveProjectData("flag", self.flag:getValue())
             sound(unpack(self.sfx.selection))
         end)
         
         self.visible:touched(touch, function(id)
             if touch.y > self.spritesheet.windowHeight then -- trick to block touches for bytes that are hidden by spritesheet window
                 self.visible:toggleByte(id)
+                saveProjectData("visible", self.visible:getValue())
                 sound(unpack(self.sfx.selection))
             end
         end)
     end
-    
-    -- Actions on map (in addition to development mode from above)
-    -- redirect touches to world map objects here
     
     -- Clear all identifier flags
     if touch.state == ENDED then
@@ -743,5 +723,14 @@ function World:touched(touch)
         -- draw() flags
         self._moveMapCamera = nil
         self._resizePicker = nil
+    end
+end
+
+function World:touched(touch)
+    self:debugTouched(touch)
+    
+    -- Actions on map (only in gameplay mode)
+    if not self.debug then
+        -- redirect touches to world map objects here
     end
 end
