@@ -67,9 +67,8 @@ function Object:getBoundingBox()
     local height = sin * self.width + cos * self.height
     
     -- Calculate edge vertices of the bounding box
-    local w = self.width * self.scaleX
+    local w, h = self:getSize()
     local w2 = w * self.pivotX
-    local h = self.height * self.scaleY
     local h2 = h * self.pivotY
     
     return

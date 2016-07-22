@@ -1,6 +1,6 @@
 World = class()
 
-function World:init()
+function World:init(layerProperties)
     parameter.action("Delete All", function()
         print("removed project data but nothing more")
         clearProjectData()
@@ -16,12 +16,13 @@ function World:init()
     -- NOTE:
     -- Each tile on spritesheet should be at size of power of 2 (8x8, 16x24, 32x32, ... px)
     -- First tile always considered to be empty (eraser)
+    
     self.texture = readImage("Dropbox:cavemen_spritesheet")
     
     self.picker = Object()
-    self.picker.width = 8 -- initial size
+    self.picker.width = 8 -- initial picker size
     self.picker.height = 8
-    self.picker.minWidth = 8 -- picker min size AND grid step size!
+    self.picker.minWidth = 8 -- min picker size (also used to determine actual tile size and grid step size!)
     self.picker.minHeight = 8
     self.picker.maxWidth = self.picker.minWidth^2 -- max size
     self.picker.maxHeight = self.picker.minHeight^2
@@ -59,9 +60,32 @@ function World:init()
     self.map = Camera()
     self.map.scaleX = 8 -- map scale value (important for in-game view)
     self.map.scaleY = 8
-    self.map.chunkWidth = 4 -- NOTE: Right now chunks only used as visual guides when scrolling tiles (no technical use yet)
-    self.map.chunkHeight = 4 -- number of sprites (not pixels)
+    self.map.chunkWidth = 4 -- number of sprites (not pixels)
+    self.map.chunkHeight = 4
     self.map.saveBuffer = {} -- used to cache drawings and allow to undo them within timer range
+    self.map.tile = {} -- tiles that are currently inside cameras view (including hidden layers)
+    
+    -- NOTE:
+    -- You can specify a class and a batch tag for each separate layer
+    -- e.g. {["layerValue"] = {class = className, batch = boolean}}
+    --
+    -- If no class was passed the layer tiles will be setup from the Sprite class
+    -- If the batch tag was set to false then all tiles from that layer will be setup as separate class objects
+    -- If the batch tag was ommited or set to true then all tiles from that layer will be flattened into one big image of the Sprite class
+    -- but all touches on the tiles will still respond as if they were of class type that was passed to them
+    -- (you can see how that works in the touched method)
+    
+    self.map.layerProperties = layerProperties or {}
+    
+    for _, layer in ipairs(self.layer) do
+        if not self.map.layerProperties[layer] then
+            self.map.layerProperties[layer] = {class = Sprite, batch = true}
+        else
+            if not self.map.layerProperties[layer].class then self.map.layerProperties[layer].class = Sprite end
+            if not self.map.layerProperties[layer].batch then self.map.layerProperties[layer].batch = true   end
+        end
+    end
+    
     self.map.adjustPivot = function()
         if self.debug then
             self.map.pivotX = (WIDTH - self.visible.windowWidth) / WIDTH / 2
@@ -73,7 +97,7 @@ function World:init()
     end
     
     self:orientationChanged()
-    self:load()
+    --self:load()
 end
 
 function World:orientationChanged()
@@ -148,52 +172,114 @@ end
 -- Call this method for dynamic loading (e.g. when camera position changes)
 function World:load()
     -- Calculate which tiles are inside cameras sight
-    local bottomLeftPos = vec2(self.map:getWorldPosition(0, 0)) -- sight borders!
+    local bottomLeftPos = vec2(self.map:getWorldPosition(0, 0)) -- view corners!
+    local bottomRightPos = vec2(self.map:getWorldPosition(WIDTH, 0))
     local topRightPos = vec2(self.map:getWorldPosition(WIDTH, HEIGHT))
-    --local chunkWidth = self.picker.minWidth * self.map.chunkWidth
-    --local chunkHeight = self.picker.minHeight * self.map.chunkHeight
-    --local bottomLeftChunk = vec2(math.floor(bottomLeftPos.x / chunkWidth), math.floor(bottomLeftPos.y / chunkHeight))
-    --local topRightChunk = vec2(math.floor(topRightPos.x / chunkWidth), math.floor(topRightPos.y / chunkHeight))
+    local topLeftPos = vec2(self.map:getWorldPosition(0, HEIGHT))
+    
     local bottomLeftTile = vec2(math.floor(bottomLeftPos.x / self.picker.minWidth), math.floor(bottomLeftPos.y / self.picker.minHeight))
+    local bottomRightTile = vec2(math.floor(bottomRightPos.x / self.picker.minWidth), math.floor(bottomRightPos.y / self.picker.minHeight))
     local topRightTile = vec2(math.floor(topRightPos.x / self.picker.minWidth), math.floor(topRightPos.y / self.picker.minHeight))
+    local topLeftTile = vec2(math.floor(topLeftPos.x / self.picker.minWidth), math.floor(topLeftPos.y / self.picker.minHeight))
+    
+    local newTiles = {}
+    local oldTiles = {}
     
     -- Load appropriate tiles and pass them to setup()
     if self.map.activeTile ~= bottomLeftTile then
         -- Load all visible tiles
         if not self.map.activeTile then
-            local tiles = {}
-            
             for layerId, layerValue in ipairs(self.layer) do
                 for x = bottomLeftTile.x, topRightTile.x do
                     for y = bottomLeftTile.y, topRightTile.y do
                         local tileId = readProjectData(x.." "..y.." "..layerValue)
                         if tileId then
-                            table.insert(tiles, {
-                                x = x,
-                                y = y,
-                                id = tileId,
-                                layer = layerValue
-                            })
+                            table.insert(newTiles, {x = x, y = y, id = tileId, layer = layerValue})
                         end
                     end
                 end
             end
-            
-            self:setup(tiles)
         else
         -- Load only new visible tiles when map changed position
-            print("load row/column of tiles")
+            local deltaPos = bottomLeftTile - self.map.activeTile
+            for layerId, layerValue in ipairs(self.layer) do
+                -- Load left column
+                if deltaPos.x < 0 then
+                    for y = bottomLeftTile.y, topLeftTile.y do
+                        local tileId = readProjectData(bottomLeftTile.x.." "..y.." "..layerValue)
+                        if tileId then table.insert(newTiles, {x = bottomLeftTile.x, y = y, id = tileId, layer = layerValue}) end
+                    end
+                    
+                    -- Remove right column
+                    for y = bottomRightTile.y, topRightTile.y do
+                        local tileId = readProjectData(bottomRightTile.x.." "..y.." "..layerValue)
+                        if tileId then table.insert(oldTiles, {x = bottomRightTile.x, y = y, id = tileId, layer = layerValue}) end
+                    end
+                elseif deltaPos.x > 0 then
+                -- Load right column
+                    for y = bottomRightTile.y, topRightTile.y do
+                        local tileId = readProjectData(bottomRightTile.x.." "..y.." "..layerValue)
+                        if tileId then table.insert(newTiles, {x = bottomRightTile.x, y = y, id = tileId, layer = layerValue}) end
+                    end
+                    
+                    -- Remove left column
+                    for y = bottomLeftTile.y, topLeftTile.y do
+                        local tileId = readProjectData(bottomLeftTile.x.." "..y.." "..layerValue)
+                        if tileId then table.insert(oldTiles, {x = bottomLeftTile.x, y = y, id = tileId, layer = layerValue}) end
+                    end
+                end
+                
+                -- Load top row
+                if deltaPos.y > 0 then
+                    for x = topLeftTile.x, topRightTile.x do
+                        local tileId = readProjectData(x.." "..topLeftTile.y.." "..layerValue)
+                        if tileId then table.insert(newTiles, {x = x, y = topLeftTile.y, id = tileId, layer = layerValue}) end
+                    end
+                    
+                    -- Remove bottom row
+                    for x = bottomLeftTile.x, bottomRightTile.x do
+                        local tileId = readProjectData(x.." "..bottomLeftTile.y.." "..layerValue)
+                        if tileId then table.insert(oldTiles, {x = x, y = bottomLeftTile.y, id = tileId, layer = layerValue}) end
+                    end
+                elseif deltaPos.y < 0 then
+                -- Load bottom row
+                    for x = bottomLeftTile.x, bottomRightTile.x do
+                        local tileId = readProjectData(x.." "..bottomLeftTile.y.." "..layerValue)
+                        if tileId then table.insert(newTiles, {x = x, y = bottomLeftTile.y, id = tileId, layer = layerValue}) end
+                    end
+                    
+                    -- Remove top row
+                    for x = topLeftTile.x, topRightTile.x do
+                        local tileId = readProjectData(x.." "..topLeftTile.y.." "..layerValue)
+                        if tileId then table.insert(oldTiles, {x = x, y = topLeftTile.y, id = tileId, layer = layerValue}) end
+                    end
+                end
+            end
         end
-        
         self.map.activeTile = bottomLeftTile
     end
+    
+    -- Pass new visible tiles onto setup
+    if #newTiles > 0 or #oldTiles > 0 then self:setup(newTiles, oldTiles) end
 end
 
--- Override this method to perform custom world setup
 -- This funtion gets called automatically each time when a new piece of the map was dynamically loaded
-function World:setup(data)
-    for i, tile in ipairs(data) do
-        local obj = Sprite(
+function World:setup(newTiles, oldTiles)
+    for i, tile in ipairs(oldTiles) do
+        for j, obj in ipairs(self.map.scene) do
+            if tile.x * self.picker.minWidth == obj.x
+            and tile.y * self.picker.minHeight == obj.y
+            and tile.id == obj.animation._default[1]
+            and tile.layer == obj.layer
+            then
+                table.remove(self.map.scene, j)
+            end
+        end
+    end
+    
+    -- Setup tiles based on given layerProperties
+    for j, tile in ipairs(newTiles) do
+        local obj = self.map.layerProperties[tile.layer].class(
             self.texture,
             tile.x * self.picker.minWidth,
             tile.y * self.picker.minHeight,
@@ -386,9 +472,7 @@ function World:draw()
         self:debugDraw()
         
         -- Coroutine threads
-        if self.map.saveRoutine then
-            coroutine.resume(self.map.saveRoutine)
-        end
+        if self.map.saveRoutine then coroutine.resume(self.map.saveRoutine) end
     end
 end
 
@@ -425,11 +509,7 @@ function World:debugTouched(touch)
             and touch.y > self.spritesheet.windowHeight and touch.y < HEIGHT - self.titleBarHeight
             then
                 self._useMapWindow = touch.initTime
-                self._saveBuffer = { -- collector variable
-                    --time (number) set in ENDED state
-                    layer = self.flag:getValue(),
-                    tiles = {}
-                }
+                self._saveBuffer = {layer = self.flag:getValue(), tiles = {}} -- collector variable (timestamp set in ENDED state)
             end
         end
         
@@ -629,6 +709,7 @@ function World:debugTouched(touch)
                     and touch.y > y and touch.y < y + h
                     then
                         self.flag:setValue(value)
+                        saveProjectData("flag", self.flag:getValue())
                         sound(unpack(self.sfx.selection))
                         break
                     end

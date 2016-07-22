@@ -3,7 +3,6 @@ Camera = class(Object)
 function Camera:init(x, y)
     Object.init(self)
     
-    self.scene = {}
     self.x = x or 0
     self.y = y or 0
     self.pivotX = .5
@@ -11,6 +10,7 @@ function Camera:init(x, y)
     self.parallax = false
     self.sorting = false
     self.parallaxSpeed = 1.0
+    self.scene = {}
 end
 
 -- Add new member to camera scene
