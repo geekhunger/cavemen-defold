@@ -36,7 +36,7 @@ function World:init(layerProperties)
     self.spritesheet.scaleX = 6 -- spritesheet and picker scale value
     self.spritesheet.scaleY = 6
     self.spritesheet.pivotY = 1
-    self.spritesheet.windowHeight = math.min(self.spritesheet.scaleY * self.spritesheet.height + self.titleBarHeight, HEIGHT/3)
+    self.spritesheet.windowHeight = math.min(self.spritesheet.scaleY * self.spritesheet.height + self.titleBarHeight, HEIGHT/4)
     self.spritesheet.y = self.spritesheet.windowHeight - self.titleBarHeight
     self.picker.y = self.spritesheet.y - self.spritesheet.scaleY * self.picker.height
     
@@ -75,16 +75,7 @@ function World:init(layerProperties)
     -- but all touches on the tiles will still respond as if they were of class type that was passed to them
     -- (you can see how that works in the touched method)
     
-    self.map.layerProperties = layerProperties or {}
-    
-    for _, layer in ipairs(self.layer) do
-        if not self.map.layerProperties[layer] then
-            self.map.layerProperties[layer] = {class = Sprite, batch = true}
-        else
-            if not self.map.layerProperties[layer].class then self.map.layerProperties[layer].class = Sprite end
-            if not self.map.layerProperties[layer].batch then self.map.layerProperties[layer].batch = true   end
-        end
-    end
+    self.map.layerProperties = layerProperties
     
     self.map.adjustPivot = function()
         if self.debug then
@@ -129,9 +120,15 @@ function World:save()
     while #self.map.saveBuffer > 0 do
         for i, task in ipairs(self.map.saveBuffer) do
             if task.time + self.undoTimer < ElapsedTime then
+                local setupTiles = {}
+                
                 -- Save tiles that can not be undone anymore (deletes tiles whose texture region index is 1)
                 for j, tile in ipairs(task.tiles) do
                     saveProjectData(tile.x.." "..tile.y.." "..task.layer, tile.id)
+                    
+                    tile.layer = task.layer
+                    table.insert(setupTiles, tile)
+                    
                     if j % maxTiles == 0 then coroutine.yield() end
                 end
                 
@@ -147,6 +144,9 @@ function World:save()
                     self.visible:addByte(pos)
                     self.visible:toggleByte(pos)
                 end
+                
+                -- Update map with newly created tiles
+                self:setup(setupTiles)
                 
                 table.remove(self.map.saveBuffer, i)
                 if i % maxTasks == 0 then coroutine.yield() end
@@ -202,6 +202,7 @@ function World:load()
         else
         -- Load only new visible tiles when map changed position
             local deltaPos = bottomLeftTile - self.map.activeTile
+            
             for layerId, layerValue in ipairs(self.layer) do
                 -- Load left column
                 if deltaPos.x < 0 then
@@ -265,21 +266,46 @@ end
 
 -- This funtion gets called automatically each time when a new piece of the map was dynamically loaded
 function World:setup(newTiles, oldTiles)
-    for i, tile in ipairs(oldTiles) do
-        for j, obj in ipairs(self.map.scene) do
-            if tile.x * self.picker.minWidth == obj.x
-            and tile.y * self.picker.minHeight == obj.y
-            and tile.id == obj.animation._default[1]
-            and tile.layer == obj.layer
-            then
-                table.remove(self.map.scene, j)
+    -- Default layer properties
+    local layerClass = Sprite
+    local layerMerge = true
+    
+    -- Remove tiles that are not needed anymore
+    if oldTiles and #oldTiles > 0 then
+        for _, tile in ipairs(oldTiles) do
+            for id, obj in ipairs(self.map.scene) do
+                if tile.x * self.picker.minWidth == obj.x
+                and tile.y * self.picker.minHeight == obj.y
+                and tile.id == obj.animation._default[1]
+                and tile.layer == obj.layer
+                then
+                    self.map:removeChild(id)
+                end
             end
         end
     end
     
-    -- Setup tiles based on given layerProperties
-    for j, tile in ipairs(newTiles) do
-        local obj = self.map.layerProperties[tile.layer].class(
+    for _, tile in ipairs(newTiles) do
+        -- Free existing tile positions on a certain layer!
+        for id, obj in ipairs(self.map.scene) do
+            if tile.x * self.picker.minWidth == obj.x
+            and tile.y * self.picker.minHeight == obj.y
+            and tile.layer == obj.layer
+            then
+                self.map:removeChild(id)
+            end
+        end
+        
+        -- Setup tiles based on given layerProperties
+        -- Update default layer properties
+        if self.map.layerProperties and self.map.layerProperties[tile.layer] then
+            if self.map.layerProperties[tile.layer].class then layerClass = self.map.layerProperties[tile.layer].class end
+            if self.map.layerProperties[tile.layer].merge then layerMerge = self.map.layerProperties[tile.layer].merge end
+        end
+        
+        -- Create objects and add them to the map camera
+        -- TODO: respond to layer property: merge
+        local obj = layerClass(
             self.texture,
             tile.x * self.picker.minWidth,
             tile.y * self.picker.minHeight,
@@ -290,6 +316,10 @@ function World:setup(newTiles, oldTiles)
         obj.layer = tile.layer
         self.map:addChild(obj)
     end
+    
+    -- Sort by layers
+    -- This is actually a replacement for camera sorting feature, since we dont need to sort within a layer
+    table.sort(self.map.scene, function(obj, list) return obj.layer < list.layer end)
 end
 
 -- Expand purpose of debugDraw for this class
@@ -384,7 +414,7 @@ function World:debugDraw()
         -- Layers
         zLevel(-1)
         fill(33)
-        rect(WIDTH - self.visible.windowWidth, 0, self.visible.windowWidth, HEIGHT)
+        --rect(WIDTH - self.visible.windowWidth, 0, self.visible.windowWidth, HEIGHT)
         self.visible:draw()
         
         for id, value in ipairs(self.layer) do
@@ -443,6 +473,8 @@ function World:draw()
     if not self.hidden then
         -- Custom world camera
         -- NOTE: rotation, sorting and parallax completely deactivated for this game!
+        pushStyle()
+        noSmooth()
         pushMatrix()
         
         if self._shakingOffset then translate(self.map._shakingOffset.x, self.map._shakingOffset.y) end
@@ -470,9 +502,11 @@ function World:draw()
         -- Editor
         popMatrix()
         self:debugDraw()
+        popStyle()
         
         -- Coroutine threads
         if self.map.saveRoutine then coroutine.resume(self.map.saveRoutine) end
+        self:load()
     end
 end
 
@@ -639,7 +673,6 @@ function World:debugTouched(touch)
                 -- Scroll world map camera
                     self.map.x = self.map.x - touch.deltaX
                     self.map.y = self.map.y - touch.deltaY
-                    self:load()
                 end
             end
         end

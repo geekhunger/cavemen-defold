@@ -25,7 +25,10 @@ end
 
 -- Remove member object from camera scene
 function Camera:removeChild(object)
-    table.remove(self.scene, self:getChildId(object))
+    local id = self:getChildId(object)
+    object = self.scene[id]
+    
+    table.remove(self.scene, id)
     object.sorted = nil
     object.parallaxed = nil
     self:setParallaxProperties()
@@ -53,6 +56,13 @@ function Camera:setParallaxProperties()
 end
 
 function Camera:getChildId(object)
+    -- If we search for an object by its actual id then just return it
+    if type(object) == "number" then
+        assert(self.scene[object], "could not find object by given id")
+        return object
+    end
+    
+    -- Otherwise search for the objects id and return that
     local id
     for i = 1, #self.scene do
         if object == self.scene[i] then
