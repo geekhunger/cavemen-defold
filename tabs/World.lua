@@ -63,6 +63,7 @@ function World:init(layerProperties)
     self.map.chunkWidth = 4 -- number of sprites (not pixels)
     self.map.chunkHeight = 4
     self.map.saveBuffer = {} -- used to cache drawings and allow to undo them within timer range
+    self.map.drawBuffer = {} -- used to display drawings before they completely saved
     self.map.tile = {} -- tiles that are currently inside cameras view (including hidden layers)
     
     -- NOTE:
@@ -120,14 +121,25 @@ function World:save()
     while #self.map.saveBuffer > 0 do
         for i, task in ipairs(self.map.saveBuffer) do
             if task.time + self.undoTimer < ElapsedTime then
-                local setupTiles = {}
+                local updatedTiles = {}
                 
-                -- Save tiles that can not be undone anymore (deletes tiles whose texture region index is 1)
                 for j, tile in ipairs(task.tiles) do
-                    saveProjectData(tile.x.." "..tile.y.." "..task.layer, tile.id)
+                    -- Save tiles that can not be undone anymore (deletes tiles whose texture region index is 1)
+                    saveProjectData(tile.x.." "..tile.y.." "..string.format("%.1f", task.layer), tile.id)
                     
-                    tile.layer = task.layer
-                    table.insert(setupTiles, tile)
+                    -- Save tiles for setup() to update the screen
+                    tile.layer = task.layer -- make layer available to each tile
+                    table.insert(updatedTiles, tile)
+                    
+                    -- Remove saved tiles from draw buffer
+                    for bufferTileId, bufferTile in ipairs(self.map.drawBuffer) do
+                        if bufferTile.x == tile.x * self.picker.minWidth
+                        and bufferTile.y == tile.y * self.picker.minHeight
+                        and bufferTile.animation._default[1] == tile.id
+                        then
+                            table.remove(self.map.drawBuffer, bufferTileId)
+                        end
+                    end
                     
                     if j % maxTiles == 0 then coroutine.yield() end
                 end
@@ -146,7 +158,7 @@ function World:save()
                 end
                 
                 -- Update map with newly created tiles
-                self:setup(setupTiles)
+                self:setup(updatedTiles)
                 
                 table.remove(self.map.saveBuffer, i)
                 if i % maxTasks == 0 then coroutine.yield() end
@@ -172,7 +184,7 @@ end
 -- Call this method for dynamic loading (e.g. when camera position changes)
 function World:load()
     -- Calculate which tiles are inside cameras sight
-    local bottomLeftPos = vec2(self.map:getWorldPosition(0, 0)) -- view corners!
+    local bottomLeftPos = vec2(self.map:getWorldPosition(0, 0)) -- view corners
     local bottomRightPos = vec2(self.map:getWorldPosition(WIDTH, 0))
     local topRightPos = vec2(self.map:getWorldPosition(WIDTH, HEIGHT))
     local topLeftPos = vec2(self.map:getWorldPosition(0, HEIGHT))
@@ -182,11 +194,12 @@ function World:load()
     local topRightTile = vec2(math.floor(topRightPos.x / self.picker.minWidth), math.floor(topRightPos.y / self.picker.minHeight))
     local topLeftTile = vec2(math.floor(topLeftPos.x / self.picker.minWidth), math.floor(topLeftPos.y / self.picker.minHeight))
     
-    local newTiles = {}
-    local oldTiles = {}
+    local preloadedTiles = {}
     
     -- Load appropriate tiles and pass them to setup()
-    if self.map.activeTile ~= bottomLeftTile then
+    if not self.map.activeTile
+    or self.map.activeTile ~= bottomLeftTile
+    then
         -- Load all visible tiles
         if not self.map.activeTile then
             for layerId, layerValue in ipairs(self.layer) do
@@ -194,7 +207,7 @@ function World:load()
                     for y = bottomLeftTile.y, topRightTile.y do
                         local tileId = readProjectData(x.." "..y.." "..layerValue)
                         if tileId then
-                            table.insert(newTiles, {x = x, y = y, id = tileId, layer = layerValue})
+                            table.insert(preloadedTiles, {x = x, y = y, id = tonumber(tileId), layer = layerValue})
                         end
                     end
                 end
@@ -208,25 +221,13 @@ function World:load()
                 if deltaPos.x < 0 then
                     for y = bottomLeftTile.y, topLeftTile.y do
                         local tileId = readProjectData(bottomLeftTile.x.." "..y.." "..layerValue)
-                        if tileId then table.insert(newTiles, {x = bottomLeftTile.x, y = y, id = tileId, layer = layerValue}) end
-                    end
-                    
-                    -- Remove right column
-                    for y = bottomRightTile.y, topRightTile.y do
-                        local tileId = readProjectData(bottomRightTile.x.." "..y.." "..layerValue)
-                        if tileId then table.insert(oldTiles, {x = bottomRightTile.x, y = y, id = tileId, layer = layerValue}) end
+                        if tileId then table.insert(preloadedTiles, {x = bottomLeftTile.x, y = y, id = tonumber(tileId), layer = layerValue}) end
                     end
                 elseif deltaPos.x > 0 then
                 -- Load right column
                     for y = bottomRightTile.y, topRightTile.y do
                         local tileId = readProjectData(bottomRightTile.x.." "..y.." "..layerValue)
-                        if tileId then table.insert(newTiles, {x = bottomRightTile.x, y = y, id = tileId, layer = layerValue}) end
-                    end
-                    
-                    -- Remove left column
-                    for y = bottomLeftTile.y, topLeftTile.y do
-                        local tileId = readProjectData(bottomLeftTile.x.." "..y.." "..layerValue)
-                        if tileId then table.insert(oldTiles, {x = bottomLeftTile.x, y = y, id = tileId, layer = layerValue}) end
+                        if tileId then table.insert(preloadedTiles, {x = bottomRightTile.x, y = y, id = tonumber(tileId), layer = layerValue}) end
                     end
                 end
                 
@@ -234,63 +235,46 @@ function World:load()
                 if deltaPos.y > 0 then
                     for x = topLeftTile.x, topRightTile.x do
                         local tileId = readProjectData(x.." "..topLeftTile.y.." "..layerValue)
-                        if tileId then table.insert(newTiles, {x = x, y = topLeftTile.y, id = tileId, layer = layerValue}) end
-                    end
-                    
-                    -- Remove bottom row
-                    for x = bottomLeftTile.x, bottomRightTile.x do
-                        local tileId = readProjectData(x.." "..bottomLeftTile.y.." "..layerValue)
-                        if tileId then table.insert(oldTiles, {x = x, y = bottomLeftTile.y, id = tileId, layer = layerValue}) end
+                        if tileId then table.insert(preloadedTiles, {x = x, y = topLeftTile.y, id = tonumber(tileId), layer = layerValue}) end
                     end
                 elseif deltaPos.y < 0 then
                 -- Load bottom row
                     for x = bottomLeftTile.x, bottomRightTile.x do
                         local tileId = readProjectData(x.." "..bottomLeftTile.y.." "..layerValue)
-                        if tileId then table.insert(newTiles, {x = x, y = bottomLeftTile.y, id = tileId, layer = layerValue}) end
-                    end
-                    
-                    -- Remove top row
-                    for x = topLeftTile.x, topRightTile.x do
-                        local tileId = readProjectData(x.." "..topLeftTile.y.." "..layerValue)
-                        if tileId then table.insert(oldTiles, {x = x, y = topLeftTile.y, id = tileId, layer = layerValue}) end
+                        if tileId then table.insert(preloadedTiles, {x = x, y = bottomLeftTile.y, id = tonumber(tileId), layer = layerValue}) end
                     end
                 end
             end
         end
         self.map.activeTile = bottomLeftTile
     end
-    
-    -- Pass new visible tiles onto setup
-    if #newTiles > 0 or #oldTiles > 0 then self:setup(newTiles, oldTiles) end
+    self:setup(preloadedTiles)
 end
 
 -- This funtion gets called automatically each time when a new piece of the map was dynamically loaded
-function World:setup(newTiles, oldTiles)
+function World:setup(newTiles)
     -- Default layer properties
     local layerClass = Sprite
     local layerMerge = true
     
-    -- Remove tiles that are not needed anymore
-    if oldTiles and #oldTiles > 0 then
-        for _, tile in ipairs(oldTiles) do
-            for id, obj in ipairs(self.map.scene) do
-                if tile.x * self.picker.minWidth == obj.x
-                and tile.y * self.picker.minHeight == obj.y
-                and tile.id == obj.animation._default[1]
-                and tile.layer == obj.layer
-                then
-                    self.map:removeChild(id)
-                end
+    -- Remove tiles outside cameras sight
+    -- This is a sidecase when there are no newTiles but we still want to remove offscreen tiles
+    if #newTiles < 1 then
+        for id, obj in ipairs(self.map.scene) do
+            if not select(3, self.map:getScreenPosition(obj)) then
+                self.map:removeChild(id)
             end
         end
     end
     
     for _, tile in ipairs(newTiles) do
-        -- Free existing tile positions on a certain layer!
         for id, obj in ipairs(self.map.scene) do
-            if tile.x * self.picker.minWidth == obj.x
+            -- Remove tiles outside cameras sight
+            if not select(3, self.map:getScreenPosition(obj))
+            -- Also free existing tile positions on a certain layer!
+            or (tile.x * self.picker.minWidth == obj.x
             and tile.y * self.picker.minHeight == obj.y
-            and tile.layer == obj.layer
+            and tile.layer == obj.layer)
             then
                 self.map:removeChild(id)
             end
@@ -304,7 +288,8 @@ function World:setup(newTiles, oldTiles)
         end
         
         -- Create objects and add them to the map camera
-        -- TODO: respond to layer property: merge
+        -- TODO: Sometimes tiles are missing to load when very quick movements of the map camera happen. What causes it (touch MOVING delay)?
+        -- TODO: Respond to layer property: merge
         local obj = layerClass(
             self.texture,
             tile.x * self.picker.minWidth,
@@ -318,7 +303,7 @@ function World:setup(newTiles, oldTiles)
     end
     
     -- Sort by layers
-    -- This is actually a replacement for camera sorting feature, since we dont need to sort within a layer
+    -- This is actually a replacement for default camera sorting feature since we dont need to sort within a layer
     table.sort(self.map.scene, function(obj, list) return obj.layer < list.layer end)
 end
 
@@ -414,7 +399,7 @@ function World:debugDraw()
         -- Layers
         zLevel(-1)
         fill(33)
-        --rect(WIDTH - self.visible.windowWidth, 0, self.visible.windowWidth, HEIGHT)
+        rect(WIDTH - self.visible.windowWidth, 0, self.visible.windowWidth, HEIGHT)
         self.visible:draw()
         
         for id, value in ipairs(self.layer) do
@@ -478,7 +463,8 @@ function World:draw()
         pushMatrix()
         
         if self._shakingOffset then translate(self.map._shakingOffset.x, self.map._shakingOffset.y) end
-        translate(self.map.pivotX * WIDTH, self.map.pivotY * HEIGHT)
+        translate(self.map.pivotX * WIDTH - self.map.x, self.map.pivotY * HEIGHT - self.map.y)
+        scale(self.map.scaleX, self.map.scaleY)
         
         for id, child in ipairs(self.map.scene) do
             local layer
@@ -490,13 +476,14 @@ function World:draw()
             end
             
             if child.draw
-            and self.visible.byte[layer] then
-                pushMatrix()
-                translate(-self.map.x, -self.map.y)
-                scale(self.map.scaleX, self.map.scaleY)
+            and self.visible.byte[layer]
+            then
                 child:draw()
-                popMatrix()
             end
+        end
+        
+        for _, tile in ipairs(self.map.drawBuffer) do
+            tile:draw()
         end
         
         -- Editor
@@ -644,27 +631,39 @@ function World:debugTouched(touch)
                         local i = 0
                         
                         -- Chache the touched tile and respond to drawing only when this tile changes
-                        if self._activeTile ~= tile then
+                        if not self._activeTile or self._activeTile ~= tile then
                             self._activeTile = tile
                             
                             -- Unpack picker indeces into tile positions
                             for y = self.picker.height / self.picker.minHeight, 1, -1 do
                                 for x = 1, self.picker.width / self.picker.minWidth do
                                     i = i + 1
-                                    local x = tile.x + x - 1
-                                    local y = tile.y + y - 1
-                                    local id = self.picker.preview.textureRegion[i] ~= 1 and self.picker.preview.textureRegion[i] or nil
                                     local skip = false
+                                    local tile = {
+                                        x = tile.x + x - 1,
+                                        y = tile.y + y - 1,
+                                        id = self.picker.preview.textureRegion[i] ~= 1 and self.picker.preview.textureRegion[i] or nil
+                                    }
                                     
                                     for _, existingTile in ipairs(self._saveBuffer.tiles) do
-                                        if existingTile.x == x and existingTile.y == y then
-                                            existingTile.id = id
+                                        if existingTile.x == tile.x and existingTile.y == tile.y then
+                                            existingTile.id = tile.id
                                             skip = true
                                             break
                                         end
                                     end
                                     
-                                    if not skip then table.insert(self._saveBuffer.tiles, {x = x, y = y, id = id}) end
+                                    if not skip then
+                                        table.insert(self._saveBuffer.tiles, tile)
+                                        table.insert(self.map.drawBuffer, Sprite(
+                                            self.texture,
+                                            tile.x * self.picker.minWidth,
+                                            tile.y * self.picker.minHeight,
+                                            self.picker.minWidth,
+                                            self.picker.minHeight
+                                        ))
+                                        self.map.drawBuffer[#self.map.drawBuffer].animation._default[1] = tile.id
+                                    end
                                 end
                             end
                         end
@@ -768,11 +767,22 @@ function World:debugTouched(touch)
                         
                         for y = self.picker.height / self.picker.minHeight, 1, -1 do
                             for x = 1, self.picker.width / self.picker.minWidth do
-                                table.insert(self._saveBuffer.tiles, {
+                                local tile = {
                                     x = tile.x + x - 1,
                                     y = tile.y + y - 1,
                                     id = self.picker.preview.textureRegion[i] ~= 1 and self.picker.preview.textureRegion[i] or nil
-                                })
+                                }
+                                
+                                table.insert(self._saveBuffer.tiles, tile)
+                                table.insert(self.map.drawBuffer, Sprite(
+                                    self.texture,
+                                    tile.x * self.picker.minWidth,
+                                    tile.y * self.picker.minHeight,
+                                    self.picker.minWidth,
+                                    self.picker.minHeight
+                                ))
+                                self.map.drawBuffer[#self.map.drawBuffer].animation._default[1] = tile.id
+                                
                                 i = i + 1
                             end
                         end

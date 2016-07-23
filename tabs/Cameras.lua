@@ -91,7 +91,7 @@ function Camera:getScreenPosition(x, y)
             screenPoint.x > 0 and screenPoint.x < WIDTH and screenPoint.y > 0 and screenPoint.y < HEIGHT
     end
     
-    -- TODO:
+    -- NOTE:
     -- The fallowing algorithm has still some flaws:
     -- try rotate object 45° and move to any screen corner
     -- portion of object will be visible but object is considered off-screen because bounding box vertices are actually off-screen
