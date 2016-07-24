@@ -1,8 +1,14 @@
 World = class()
 
 function World:init(layerProperties)
-    parameter.action("Delete All", function()
-        print("removed project data but nothing more")
+    parameter.action("Delete Current Layer", function()
+        for id, key in pairs(listProjectData()) do
+            local x, y, layer = key:match("%S+")
+            print(x, y, layer)
+        end
+    end)
+    
+    parameter.action("Delete Everything", function()
         clearProjectData()
     end)
     
@@ -11,7 +17,7 @@ function World:init(layerProperties)
     self.sfx.action = {SOUND_RANDOM, 6653}
     
     self.gestureTimer = .33 -- time duration (in sec) after which to lock into a certain touch mode
-    self.undoTimer = 3 -- time duration (in sec) after which drawings can not be un-done anymore
+    self.undoTimer = 0 -- time duration (in sec) after which drawings can not be un-done anymore
     
     -- NOTE:
     -- Each tile on spritesheet should be at size of power of 2 (8x8, 16x24, 32x32, ... px)
@@ -64,17 +70,15 @@ function World:init(layerProperties)
     self.map.chunkHeight = 4
     self.map.saveBuffer = {} -- used to cache drawings and allow to undo them within timer range
     self.map.drawBuffer = {} -- used to display drawings before they completely saved
-    self.map.tile = {} -- tiles that are currently inside cameras view (including hidden layers)
     
     -- NOTE:
-    -- You can specify a class and a batch tag for each separate layer
-    -- e.g. {["layerValue"] = {class = className, batch = boolean}}
+    -- You can specify a class and a merge tag for each separate layer
+    -- e.g. {["layerFlagNumber"] = {class = className, merge = boolean}}
     --
     -- If no class was passed the layer tiles will be setup from the Sprite class
-    -- If the batch tag was set to false then all tiles from that layer will be setup as separate class objects
-    -- If the batch tag was ommited or set to true then all tiles from that layer will be flattened into one big image of the Sprite class
-    -- but all touches on the tiles will still respond as if they were of class type that was passed to them
-    -- (you can see how that works in the touched method)
+    -- If the merge tag was set to false then all tiles from that layer will be setup as separate class objects
+    -- If the merge tag was ommited or set to true then all tiles from that layer will be flattened into one big image of the Sprite class
+    -- but they will still respond as if they were of class type that was passed to them
     
     self.map.layerProperties = layerProperties
     
@@ -89,7 +93,6 @@ function World:init(layerProperties)
     end
     
     self:orientationChanged()
-    --self:load()
 end
 
 function World:orientationChanged()
@@ -170,7 +173,7 @@ function World:save()
     -- Delete layers that have no content anymore
     local content = table.concat(listProjectData(), " ")
     for id, layer in ipairs(self.layer) do
-        if not content:find("%S+%s%S+%s"..layer) then
+        if not content:find("[%d%-%.]+ [%d%-%.]+ "..string.format("%.1f", layer)) then
             table.remove(self.layer, id)
             self.visible:removeByte(id)
         end
@@ -390,7 +393,7 @@ function World:debugDraw()
         else
         -- Drawing mode
             if #self.map.saveBuffer > 0 then
-                local time = self.map.saveBuffer[#self.map.saveBuffer].time + self.undoTimer - ElapsedTime
+                local time = math.max(0, self.map.saveBuffer[#self.map.saveBuffer].time + self.undoTimer - ElapsedTime)
                 fill(255)
                 text(string.format("Undo %.0f", time), WIDTH/2, HEIGHT - self.titleBarHeight/2)
             end
@@ -456,38 +459,9 @@ end
 -- Override this method to perform custom world drawing
 function World:draw()
     if not self.hidden then
-        -- Custom world camera
-        -- NOTE: rotation, sorting and parallax completely deactivated for this game!
         pushStyle()
         noSmooth()
-        pushMatrix()
-        
-        if self._shakingOffset then translate(self.map._shakingOffset.x, self.map._shakingOffset.y) end
-        translate(self.map.pivotX * WIDTH - self.map.x, self.map.pivotY * HEIGHT - self.map.y)
-        scale(self.map.scaleX, self.map.scaleY)
-        
-        for id, child in ipairs(self.map.scene) do
-            local layer
-            for layerId, layerValue in ipairs(self.layer) do
-                if child.layer == layerValue then
-                    layer = layerId
-                    break
-                end
-            end
-            
-            if child.draw
-            and self.visible.byte[layer]
-            then
-                child:draw()
-            end
-        end
-        
-        for _, tile in ipairs(self.map.drawBuffer) do
-            tile:draw()
-        end
-        
-        -- Editor
-        popMatrix()
+        self.map:draw()
         self:debugDraw()
         popStyle()
         
