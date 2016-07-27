@@ -1,0 +1,4 @@
+function on_reload(self)
+    -- Turn on profiler on hot reload
+	msg.post("@system:", "toggle_profile")
+end

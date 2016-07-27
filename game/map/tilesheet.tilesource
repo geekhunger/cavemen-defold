@@ -1,0 +1,18 @@
+image: "/game/map/spritesheet.png"
+tile_width: 8
+tile_height: 8
+tile_margin: 0
+tile_spacing: 0
+collision: ""
+material_tag: "tile"
+animations {
+  id: "default"
+  start_tile: 21
+  end_tile: 21
+  playback: PLAYBACK_ONCE_FORWARD
+  fps: 1
+  flip_horizontal: 0
+  flip_vertical: 0
+}
+extrude_borders: 0
+inner_padding: 0
