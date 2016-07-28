@@ -749,7 +749,7 @@ layers {
 layers {
   id: "characters"
   z: 0.1
-  is_visible: 0
+  is_visible: 1
   cell {
     x: 11
     y: 7
@@ -775,7 +775,7 @@ layers {
 layers {
   id: "objects"
   z: 0.1
-  is_visible: 0
+  is_visible: 1
   cell {
     x: 8
     y: 9

@@ -1,0 +1,41 @@
+local renderer = require "game.renderer.FixedAspectRatioHelper"
+
+function init(self)
+	msg.post("#camera", "acquire_camera_focus")
+	
+	self.position = go.get_world_position()
+end
+
+function final(self)
+	msg.post("#camera", "release_camera_focus")
+end
+
+function update(self, dt)
+	if self.shake_timer
+	and self.shake_timer > 0
+	then
+		self.shake_timer = self.shake_timer - dt
+		local offset = vmath.vector3(math.random(math.ceil(self.shake_range.x)) * self.shake_timer, math.random(math.ceil(self.shake_range.y)) * self.shake_timer, 0)
+		go.set_position(self.position + offset)
+	else
+		self.shake_timer = nil
+		self.shake_range = nil
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("shake") then
+    	self.shake_timer = message.duration or .5
+    	self.shake_range = message.range or vmath.vector3(24, 24, 0)
+    end
+    
+    if message_id == hash("set_view_pivot") then
+    	msg.post("@render:", "set_view_pivot", message) -- redirect call to renderer
+    end
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end
