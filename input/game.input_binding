@@ -2,3 +2,7 @@ key_trigger {
   input: KEY_P
   action: "profiler"
 }
+mouse_trigger {
+  input: MOUSE_BUTTON_1
+  action: "action"
+}
