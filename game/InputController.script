@@ -16,7 +16,7 @@ function on_input(self, action_id, action)
 		-- calc world pos from action.screen_x and action.screen_y
 		-- move cam and player to that pos
 		-- pass turn onto other player
-		print("mouse click")
+		msg.post("camera", "shake", {duration = 30})
 	end
 end
 
