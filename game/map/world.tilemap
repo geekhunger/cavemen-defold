@@ -4,6 +4,13 @@ layers {
   z: 0.0
   is_visible: 1
   cell {
+    x: 7
+    y: 7
+    tile: 5
+    h_flip: 0
+    v_flip: 0
+  }
+  cell {
     x: 6
     y: 6
     tile: 5
@@ -13,13 +20,6 @@ layers {
   cell {
     x: 8
     y: 8
-    tile: 5
-    h_flip: 0
-    v_flip: 0
-  }
-  cell {
-    x: 7
-    y: 7
     tile: 5
     h_flip: 0
     v_flip: 0
@@ -749,18 +749,25 @@ layers {
 layers {
   id: "characters"
   z: 0.1
-  is_visible: 1
+  is_visible: 0
   cell {
-    x: 11
-    y: 7
+    x: 18
+    y: 3
+    tile: 7
+    h_flip: 0
+    v_flip: 0
+  }
+  cell {
+    x: -1
+    y: 3
     tile: 39
     h_flip: 0
     v_flip: 0
   }
   cell {
-    x: 9
-    y: 4
-    tile: 7
+    x: 11
+    y: 7
+    tile: 39
     h_flip: 0
     v_flip: 0
   }

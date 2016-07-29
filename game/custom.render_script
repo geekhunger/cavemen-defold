@@ -1,7 +1,6 @@
 -- Custom Render Script To Fix Aspect Ratio
 -- borrowed from https://github.com/britzl/publicexamples/tree/master/examples/fixed_aspect_ratio
 -- and heavily modified by kennstewayne.de
---
 
 function init(self)
 	self.tile_pred = render.predicate({"tile"})
@@ -9,7 +8,7 @@ function init(self)
 	self.gui_pred = render.predicate({"gui"})
 	self.text_pred = render.predicate({"text"})
 	
-	self.clear_color = vmath.vector4(0, 0, 0, 0)
+	self.clear_color   = vmath.vector4(0, 0, 0, 0)
 	self.clear_color.x = sys.get_config("render.clear_color_red", 0)
 	self.clear_color.y = sys.get_config("render.clear_color_green", 0)
 	self.clear_color.z = sys.get_config("render.clear_color_blue", 0)
@@ -17,8 +16,8 @@ function init(self)
 	
 	self.view = vmath.matrix4()
 	
-	self.window_width = render.get_window_width()
-	self.window_height = render.get_window_height()
+	self.window_width   = render.get_width()
+	self.window_height  = render.get_height()
 	self.pivot_position = vmath.vector3(.5, .5, 0)
 	self.pivot_offset_x = 0
 	self.pivot_offset_y = 0
@@ -69,16 +68,23 @@ end
 
 function on_message(self, message_id, message, sender)
 	if message_id == hash("window_resized") then
-		self.window_width = render.get_window_width()
+		self.window_width  = render.get_window_width()
 		self.window_height = render.get_window_height()
-	elseif message_id == hash("set_view_zoom") then
-		self.zoom = message.zoom
-		print("render set_view_zoom")
-	elseif message_id == hash("clear_color") then
+	end
+	
+	if message_id == hash("set_view_zoom") then
+		--self.zoom = message.zoom
+	end
+	
+	if message_id == hash("clear_color") then
 		self.clear_color = message.color
-	elseif message_id == hash("set_view_projection") then
+	end
+	
+	if message_id == hash("set_view_projection") then
 		self.view = message.view
-	elseif message_id == hash("set_view_pivot") then
+	end
+	
+	if message_id == hash("set_view_pivot") then
 		self.pivot = message.pivot
 	end
 	

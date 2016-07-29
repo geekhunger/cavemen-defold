@@ -15,9 +15,21 @@ function on_message(self, message_id, message, sender)
 end
 
 function on_input(self, action_id, action)
+	-- NOTE
+	-- action.x and action.y is the position inside the window based on render.get_width() and render.get_height()
+	-- action.screen_x and action.screen_y is position inside the window based on render.get_window_width() and render.get_window_height()
+	
+	-- Mouse movement
+	if not action.id
+	and action
+	then
+		--pprint(action)
+	end
+	
+	-- Mouse actions
     if action_id == hash("action") and action.released then
-		msg.post("@render:", "get_world_position", {x = action.x, y = action.y})
-		msg.post("/fallower#controller", "shake", {duration = .25, range = vmath.vector3(4, 4, 0)})
+		msg.post("@render:", "get_world_position", {x = action.screen_x, y = action.screen_y})
+		--msg.post("/fallower#controller", "shake", {duration = .25, range = vmath.vector3(4, 4, 0)})
 		--msg.post("@render:", "set_view_pivot", {pivot = vmath.vector3(math.random(10)*.1, math.random(10)*.1, 0)})
 	end
 	

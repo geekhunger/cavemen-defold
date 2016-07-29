@@ -3,6 +3,7 @@ scale_along_z: 0
 embedded_instances {
   id: "world"
   children: "fallower"
+  children: "player"
   children: "map"
   data: ""
   position {
@@ -41,7 +42,27 @@ embedded_instances {
   "}\n"
   "components {\n"
   "  id: \"controller\"\n"
-  "  component: \"/game/CameraController.script\"\n"
+  "  component: \"/game/camera_controller.script\"\n"
+  "  position {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "  }\n"
+  "  rotation {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "    w: 1.0\n"
+  "  }\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"hero\"\n"
+  "  type: \"sprite\"\n"
+  "  data: \"tile_set: \\\"/game/map/tilesheet.tilesource\\\"\\n"
+  "default_animation: \\\"hero\\\"\\n"
+  "material: \\\"/builtins/materials/sprite.material\\\"\\n"
+  "blend_mode: BLEND_MODE_ALPHA\\n"
+  "\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"
@@ -56,9 +77,74 @@ embedded_instances {
   "}\n"
   ""
   position {
-    x: 76.0
-    y: 35.0
+    x: 0.0
+    y: 0.0
     z: 1.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  scale3 {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+}
+embedded_instances {
+  id: "player"
+  data: "components {\n"
+  "  id: \"guard\"\n"
+  "  component: \"/game/player/guard.factory\"\n"
+  "  position {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "  }\n"
+  "  rotation {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "    w: 1.0\n"
+  "  }\n"
+  "}\n"
+  "components {\n"
+  "  id: \"ork\"\n"
+  "  component: \"/game/player/ork.factory\"\n"
+  "  position {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "  }\n"
+  "  rotation {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "    w: 1.0\n"
+  "  }\n"
+  "}\n"
+  "components {\n"
+  "  id: \"spawner\"\n"
+  "  component: \"/game/player/spawner.script\"\n"
+  "  position {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "  }\n"
+  "  rotation {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "    w: 1.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 480.0
+    y: 384.0
+    z: 0.1
   }
   rotation {
     x: 0.0
@@ -76,7 +162,7 @@ embedded_instances {
   id: "map"
   data: "components {\n"
   "  id: \"controller\"\n"
-  "  component: \"/game/InputController.script\"\n"
+  "  component: \"/game/input_controller.script\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"

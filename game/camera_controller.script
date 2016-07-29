@@ -22,6 +22,7 @@ end
 
 function on_message(self, message_id, message, sender)
 	if message_id == hash("get_world_position") then
+		-- Respond when asking this to @render: from within THIS script
 		msg.post("#", "set_position", message)
 	elseif message_id == hash("set_position") then
 		local scale = go.get_scale_vector("/world")
