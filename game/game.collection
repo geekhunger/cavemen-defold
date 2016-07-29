@@ -1,10 +1,32 @@
 name: "game"
 scale_along_z: 0
 embedded_instances {
-  id: "camera"
+  id: "world"
+  children: "fallower"
+  children: "map"
+  data: ""
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  scale3 {
+    x: 6.0
+    y: 6.0
+    z: 1.0
+  }
+}
+embedded_instances {
+  id: "fallower"
   data: "components {\n"
   "  id: \"camera\"\n"
-  "  component: \"/game/renderer/camera.camera\"\n"
+  "  component: \"/game/fallower.camera\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"
@@ -19,7 +41,7 @@ embedded_instances {
   "}\n"
   "components {\n"
   "  id: \"controller\"\n"
-  "  component: \"/game/renderer/CameraController.script\"\n"
+  "  component: \"/game/CameraController.script\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"
@@ -34,8 +56,8 @@ embedded_instances {
   "}\n"
   ""
   position {
-    x: 26.526419
-    y: 90.180984
+    x: 76.0
+    y: 35.0
     z: 1.0
   }
   rotation {
@@ -51,7 +73,7 @@ embedded_instances {
   }
 }
 embedded_instances {
-  id: "world"
+  id: "map"
   data: "components {\n"
   "  id: \"controller\"\n"
   "  component: \"/game/InputController.script\"\n"
@@ -86,8 +108,8 @@ embedded_instances {
   "  id: \"tilemap\"\n"
   "  component: \"/game/map/world.tilemap\"\n"
   "  position {\n"
-  "    x: -71.19001\n"
-  "    y: -19.455654\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
   "    z: 0.0\n"
   "  }\n"
   "  rotation {\n"
@@ -110,8 +132,8 @@ embedded_instances {
     w: 1.0
   }
   scale3 {
-    x: 6.0
-    y: 6.0
+    x: 1.0
+    y: 1.0
     z: 1.0
   }
 }

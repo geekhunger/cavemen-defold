@@ -4,14 +4,15 @@ version = 0.1
 
 [bootstrap]
 main_collection = /game/game.collectionc
-render = /game/renderer/FixedAspectRatio.renderc
+render = /game/custom.renderc
 
 [input]
 game_binding = /input/game.input_bindingc
 
 [display]
-width = 800
+width = 600
 height = 600
+display_profiles = /builtins/render/default.display_profilesc
 
 [physics]
 scale = 0.02
