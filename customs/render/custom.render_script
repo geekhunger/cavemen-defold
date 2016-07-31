@@ -1,14 +1,13 @@
--- Custom Render Script To Fix Aspect Ratio
 -- borrowed from https://github.com/britzl/publicexamples/tree/master/examples/fixed_aspect_ratio
 -- and heavily modified by kennstewayne.de
 
 function init(self)
-	self.tile_pred = render.predicate({"tile"})
-	self.particle_pred = render.predicate({"particle"})
-	self.gui_pred = render.predicate({"gui"})
-	self.text_pred = render.predicate({"text"})
+	self.tile_pred = render.predicate{"tile"}
+	self.particle_pred = render.predicate{"particle"}
+	self.gui_pred = render.predicate{"gui"}
+	self.text_pred = render.predicate{"text"}
 	
-	self.clear_color   = vmath.vector4(0, 0, 0, 0)
+	self.clear_color = vmath.vector4(0, 0, 0, 0)
 	self.clear_color.x = sys.get_config("render.clear_color_red", 0)
 	self.clear_color.y = sys.get_config("render.clear_color_green", 0)
 	self.clear_color.z = sys.get_config("render.clear_color_blue", 0)
@@ -16,12 +15,13 @@ function init(self)
 	
 	self.view = vmath.matrix4()
 	
-	self.window_width   = render.get_width()
-	self.window_height  = render.get_height()
-	self.pivot_position = vmath.vector3(.5, .5, 0)
+	self.window_width = render.get_width()
+	self.window_height = render.get_height()
+	self.pivot_x = .5
+	self.pivot_y = .5
 	self.pivot_offset_x = 0
 	self.pivot_offset_y = 0
-	self.zoom = 0
+	self.zoom_factor = 1
 end
 
 function update(self)
@@ -29,18 +29,19 @@ function update(self)
 	render.clear({[render.BUFFER_COLOR_BIT] = self.clear_color, [render.BUFFER_DEPTH_BIT] = 1, [render.BUFFER_STENCIL_BIT] = 0})
 	
 	-- Setup camera viewport
-	self.pivot_offset_x = self.pivot_position.x * self.window_width
-	self.pivot_offset_y = self.pivot_position.y * self.window_height
+	local zoom_offset_x = self.pivot_x * (self.window_width - self.zoom_factor * self.window_width)
+	local zoom_offset_y = self.pivot_y * (self.window_height - self.zoom_factor * self.window_height)
+	self.pivot_offset_x = self.pivot_x * self.window_width - zoom_offset_x
+	self.pivot_offset_y = self.pivot_y * self.window_height - zoom_offset_y
+	
+	local left = -self.pivot_offset_x
+	local right = self.zoom_factor * self.window_width - self.pivot_offset_x
+	local bottom = -self.pivot_offset_y
+	local top = self.zoom_factor * self.window_height - self.pivot_offset_y
 	
 	render.set_view(self.view)
 	render.set_viewport(0, 0, self.window_width, self.window_height)
-	render.set_projection(vmath.matrix4_orthographic(
-		-self.pivot_offset_x,
-		self.window_width - self.pivot_offset_x,
-		-self.pivot_offset_y,
-		self.window_height - self.pivot_offset_y,
-		-1, 1
-	))
+	render.set_projection(vmath.matrix4_orthographic(left, right, bottom, top, -1, 1))
 	
 	render.set_depth_mask(false)
 	render.disable_state(render.STATE_DEPTH_TEST)
@@ -61,7 +62,6 @@ function update(self)
 	render.draw(self.gui_pred)
 	render.draw(self.text_pred)
 	render.disable_state(render.STATE_STENCIL_TEST)
-	
 	render.set_depth_mask(false)
 	render.draw_debug2d()
 end
@@ -73,7 +73,7 @@ function on_message(self, message_id, message, sender)
 	end
 	
 	if message_id == hash("set_view_zoom") then
-		--self.zoom = message.zoom
+		self.zoom_factor = message.zoom^-(message_step or .1) * self.zoom_factor
 	end
 	
 	if message_id == hash("clear_color") then
@@ -85,12 +85,18 @@ function on_message(self, message_id, message, sender)
 	end
 	
 	if message_id == hash("set_view_pivot") then
-		self.pivot = message.pivot
+		self.pivot_position = message.pivot
 	end
 	
+	-- Translate 2d point from screen- to world coordinates
 	if message_id == hash("get_world_position") then
-		local x = message.x - self.pivot_offset_x
-		local y = message.y - self.pivot_offset_y
+		local x = self.zoom_factor * message.x - self.pivot_offset_x
+		local y = self.zoom_factor * message.y - self.pivot_offset_y
 		msg.post(sender, "get_world_position", {x = x, y = y})
+	end
+	
+	-- Translate 2d point from world- to screen coordinates
+	if message_id == hash("get_screen_position") then
+		-- TODO
 	end
 end

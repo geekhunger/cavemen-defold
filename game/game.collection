@@ -1,149 +1,10 @@
 name: "game"
-scale_along_z: 0
-embedded_instances {
-  id: "world"
-  children: "fallower"
-  children: "player"
-  children: "map"
-  data: ""
+instances {
+  id: "hero"
+  prototype: "/map/player/hero/hero.go"
   position {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 6.0
-    y: 6.0
-    z: 1.0
-  }
-}
-embedded_instances {
-  id: "fallower"
-  data: "components {\n"
-  "  id: \"camera\"\n"
-  "  component: \"/game/fallower.camera\"\n"
-  "  position {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "  }\n"
-  "  rotation {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "    w: 1.0\n"
-  "  }\n"
-  "}\n"
-  "components {\n"
-  "  id: \"controller\"\n"
-  "  component: \"/game/camera_controller.script\"\n"
-  "  position {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "  }\n"
-  "  rotation {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "    w: 1.0\n"
-  "  }\n"
-  "}\n"
-  "embedded_components {\n"
-  "  id: \"hero\"\n"
-  "  type: \"sprite\"\n"
-  "  data: \"tile_set: \\\"/game/map/tilesheet.tilesource\\\"\\n"
-  "default_animation: \\\"hero\\\"\\n"
-  "material: \\\"/builtins/materials/sprite.material\\\"\\n"
-  "blend_mode: BLEND_MODE_ALPHA\\n"
-  "\"\n"
-  "  position {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "  }\n"
-  "  rotation {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "    w: 1.0\n"
-  "  }\n"
-  "}\n"
-  ""
-  position {
-    x: 0.0
-    y: 0.0
-    z: 1.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  scale3 {
-    x: 1.0
-    y: 1.0
-    z: 1.0
-  }
-}
-embedded_instances {
-  id: "player"
-  data: "components {\n"
-  "  id: \"guard\"\n"
-  "  component: \"/game/player/guard.factory\"\n"
-  "  position {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "  }\n"
-  "  rotation {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "    w: 1.0\n"
-  "  }\n"
-  "}\n"
-  "components {\n"
-  "  id: \"ork\"\n"
-  "  component: \"/game/player/ork.factory\"\n"
-  "  position {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "  }\n"
-  "  rotation {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "    w: 1.0\n"
-  "  }\n"
-  "}\n"
-  "components {\n"
-  "  id: \"spawner\"\n"
-  "  component: \"/game/player/spawner.script\"\n"
-  "  position {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "  }\n"
-  "  rotation {\n"
-  "    x: 0.0\n"
-  "    y: 0.0\n"
-  "    z: 0.0\n"
-  "    w: 1.0\n"
-  "  }\n"
-  "}\n"
-  ""
-  position {
-    x: 480.0
-    y: 384.0
+    x: -361.96466
+    y: 656.2526
     z: 0.1
   }
   rotation {
@@ -158,11 +19,28 @@ embedded_instances {
     z: 1.0
   }
 }
+scale_along_z: 0
 embedded_instances {
-  id: "map"
+  id: "fallower"
+  children: "hero"
   data: "components {\n"
-  "  id: \"controller\"\n"
-  "  component: \"/game/input_controller.script\"\n"
+  "  id: \"camera\"\n"
+  "  component: \"/map/camera/fallower.camera\"\n"
+  "  position {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "  }\n"
+  "  rotation {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "    w: 1.0\n"
+  "  }\n"
+  "}\n"
+  "components {\n"
+  "  id: \"camera_controller\"\n"
+  "  component: \"/map/camera/camera_controller.script\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"
@@ -177,7 +55,42 @@ embedded_instances {
   "}\n"
   "components {\n"
   "  id: \"profiler\"\n"
-  "  component: \"/game/Profiler.script\"\n"
+  "  component: \"/game/profiler.script\"\n"
+  "  position {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "  }\n"
+  "  rotation {\n"
+  "    x: 0.0\n"
+  "    y: 0.0\n"
+  "    z: 0.0\n"
+  "    w: 1.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: -359.1155
+    y: 644.6313
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  scale3 {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+}
+embedded_instances {
+  id: "world"
+  data: "components {\n"
+  "  id: \"input_controller\"\n"
+  "  component: \"/input/input_controller.script\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"
@@ -191,8 +104,8 @@ embedded_instances {
   "  }\n"
   "}\n"
   "components {\n"
-  "  id: \"tilemap\"\n"
-  "  component: \"/game/map/world.tilemap\"\n"
+  "  id: \"room\"\n"
+  "  component: \"/map/room/kingdom/lobby/lobby.tilemap\"\n"
   "  position {\n"
   "    x: 0.0\n"
   "    y: 0.0\n"
@@ -218,8 +131,8 @@ embedded_instances {
     w: 1.0
   }
   scale3 {
-    x: 1.0
-    y: 1.0
+    x: 6.0
+    y: 6.0
     z: 1.0
   }
 }

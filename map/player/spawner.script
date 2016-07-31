@@ -1,21 +1,22 @@
+--local render = require "customs.render_helper"
+
 function init(self)
-	-- TODO: loop only through tilemap portion currently visible, not the whole map!
+	self.player = {}
 	
 	local tilemap_tile_width = 8
 	local tilemap_tile_height = 8
-	local curr_pos = go.get_position("/fallower")
-	local curr_scale = go.get_scale_vector("/world")
+	local cam_pos = go.get_position("/fallower")
+	local world_scale = go.get_scale_vector("/world")
 	local tilemap_x,
 		  tilemap_y,
 		  tilemap_width,
-		  tilemap_height = tilemap.get_bounds("/map#tilemap")
+		  tilemap_height = tilemap.get_bounds("/map/room#kingdom_entry")
 	
 	-- NOTE
 	-- Tilemap has a special layer "characters" which get replaced by real spawn gameobjects
 	-- Define a dictionary like {[tile_id] = factory}
 	
 	local player_list = {
-		["8"]  = "hero",
 		["24"] = "guard",
 		["40"] = "ork"
 	}
@@ -29,20 +30,19 @@ function init(self)
 			
 			local x = i + tilemap_x - 1
 			local y = j + tilemap_y - 1
-			local tile_id  = tilemap.get_tile("/map#tilemap", "characters", x, y)
-			local tile_x = (x * tilemap_tile_width - tilemap_tile_width/2 - curr_pos.x) * curr_scale.x
-			local tile_y = (y * tilemap_tile_height - tilemap_tile_height/2 - curr_pos.y) * curr_scale.y
+			local tile_id = tilemap.get_tile("/map/room#kingdom_entry", "player", x, y)
+			local tile_x = (x * tilemap_tile_width - tilemap_tile_width/2) * world_scale.x
+			local tile_y = (y * tilemap_tile_height - tilemap_tile_height/2) * world_scale.y
 			local player = player_list[tostring(tile_id)]
 			
 			if player then
-				if player == "hero" then
-					msg.post("/fallower#controller", "set_position", {x = tile_x, y = tile_y})
-				else
-					factory.create("#"..player, vmath.vector3(tile_x, tile_y, go.get_position("/player").z))
-				end
+				local spawn_id = factory.create("#"..player, vmath.vector3(tile_x, tile_y, go.get_position("/player").z))
+				table.insert(self.player, {id = spawn_id, tile_id = tile_id, factory_id = player})
 			end
 		end
 	end
+	
+	print("#"..#self.player.." enemies spawn")
 end
 
 function final(self)

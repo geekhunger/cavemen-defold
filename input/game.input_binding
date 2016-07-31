@@ -4,11 +4,11 @@ key_trigger {
 }
 mouse_trigger {
   input: MOUSE_WHEEL_UP
-  action: "zoom_out"
+  action: "zoom_in"
 }
 mouse_trigger {
   input: MOUSE_WHEEL_DOWN
-  action: "zoom_in"
+  action: "zoom_out"
 }
 mouse_trigger {
   input: MOUSE_BUTTON_1

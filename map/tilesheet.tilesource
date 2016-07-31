@@ -1,0 +1,70 @@
+image: "/map/spritesheet.png"
+tile_width: 8
+tile_height: 8
+tile_margin: 0
+tile_spacing: 0
+material_tag: "tile"
+animations {
+  id: "default"
+  start_tile: 22
+  end_tile: 22
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "guard"
+  start_tile: 24
+  end_tile: 24
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "hero"
+  start_tile: 8
+  end_tile: 8
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "king"
+  start_tile: 56
+  end_tile: 56
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "kobold"
+  start_tile: 41
+  end_tile: 41
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "ork"
+  start_tile: 40
+  end_tile: 40
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "princess"
+  start_tile: 57
+  end_tile: 57
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "shopkeeper"
+  start_tile: 9
+  end_tile: 9
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+animations {
+  id: "skeleton"
+  start_tile: 25
+  end_tile: 25
+  playback: PLAYBACK_NONE
+  fps: 1
+}
+extrude_borders: 2
