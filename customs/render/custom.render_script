@@ -17,11 +17,11 @@ function init(self)
 	
 	self.window_width = render.get_width()
 	self.window_height = render.get_height()
+	self.zoom_factor = 1
 	self.pivot_x = .5
 	self.pivot_y = .5
 	self.pivot_offset_x = 0
 	self.pivot_offset_y = 0
-	self.zoom_factor = 1
 end
 
 function update(self)
@@ -73,7 +73,13 @@ function on_message(self, message_id, message, sender)
 	end
 	
 	if message_id == hash("set_view_zoom") then
-		self.zoom_factor = message.zoom^-(message_step or .1) * self.zoom_factor
+		local zoom = message.multiplier^-(message.resolution or .1) * self.zoom_factor
+		if not message.limit then
+			self.zoom_factor = zoom
+		else
+			if message.multiplier > 1 and zoom > 1/message.limit then self.zoom_factor = zoom end
+			if message.multiplier < 1 and zoom < 1/message.limit then self.zoom_factor = zoom end
+		end
 	end
 	
 	if message_id == hash("clear_color") then
@@ -98,5 +104,6 @@ function on_message(self, message_id, message, sender)
 	-- Translate 2d point from world- to screen coordinates
 	if message_id == hash("get_screen_position") then
 		-- TODO
+		-- not needed now but might be done for completeness sake
 	end
 end

@@ -21,17 +21,17 @@ function update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
-	if message_id == hash("set_position") then
+	if message_id == hash("shake_screen") then
+    	self.shake_timer = message.duration or .5
+    	self.shake_range = message.range or vmath.vector3(24, 24, 0)
+    end
+    
+    if message_id == hash("set_position") then
 		local scale = go.get_scale_vector(".")
 		self.position.x = self.position.x + message.x / scale.x
 		self.position.y = self.position.y + message.y / scale.y
 		go.set_position(self.position)
 	end
-	
-	if message_id == hash("shake_screen") then
-    	self.shake_timer = message.duration or .5
-    	self.shake_range = message.range or vmath.vector3(24, 24, 0)
-    end
 end
 
 function on_input(self, action_id, action)

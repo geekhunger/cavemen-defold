@@ -10,7 +10,7 @@ render = /customs/render/custom.renderc
 game_binding = /input/game.input_bindingc
 
 [display]
-width = 1600
+width = 800
 height = 800
 display_profiles = /builtins/render/default.display_profilesc
 
