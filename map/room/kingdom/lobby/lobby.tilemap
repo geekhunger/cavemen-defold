@@ -4,13 +4,6 @@ layers {
   z: 0.0
   is_visible: 1
   cell {
-    x: -3
-    y: -3
-    tile: 34
-    h_flip: 0
-    v_flip: 0
-  }
-  cell {
     x: -4
     y: -4
     tile: 34
