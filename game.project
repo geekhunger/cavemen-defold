@@ -1,6 +1,6 @@
 [project]
 title = Cavemen
-version = 012
+version = 011
 
 [bootstrap]
 main_collection = /game/game.collectionc
